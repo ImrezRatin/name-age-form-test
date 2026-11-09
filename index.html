@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Name &amp; Age Register</title>
+  <meta name="description" content="A simple form where anyone can save their name and age.">
+  <style>
+    :root { --bg:#f4f6fb; --card:#fff; --fg:#1f2937; --muted:#6b7280; --line:#e5e7eb; --accent:#2563eb; --accent-dark:#1d4ed8; --ok:#15803d; --ok-bg:#dcfce7; --warn:#b45309; --warn-bg:#fef3c7; --err:#b91c1c; --err-bg:#fee2e2; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background:var(--bg); color:var(--fg); line-height:1.5; }
+    .wrap { max-width:720px; margin:0 auto; padding:32px 16px 60px; }
+    h1 { margin:0 0 4px; font-size:1.9rem; }
+    .sub { color:var(--muted); margin:0 0 20px; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:22px; box-shadow:0 10px 30px -18px rgba(0,0,0,.25); margin-bottom:18px; }
+    label { display:block; font-weight:600; font-size:.9rem; margin-bottom:6px; }
+    input { width:100%; font:inherit; padding:11px 13px; border:1px solid var(--line); border-radius:10px; }
+    input:focus { outline:2px solid #bfdbfe; border-color:var(--accent); }
+    .row { display:grid; grid-template-columns: 1fr 140px auto; gap:12px; align-items:end; }
+    @media (max-width:560px) { .row { grid-template-columns:1fr; } }
+    button { font:inherit; font-weight:700; padding:11px 18px; border-radius:10px; border:0; background:var(--accent); color:#fff; cursor:pointer; }
+    button:hover { background:var(--accent-dark); }
+    button:disabled { opacity:.6; cursor:progress; }
+    .btn-ghost { background:transparent; color:var(--muted); border:1px solid var(--line); font-weight:600; padding:7px 12px; font-size:.85rem; }
+    .btn-ghost:hover { background:var(--bg); color:var(--fg); }
+    .msg { margin-top:12px; padding:10px 12px; border-radius:10px; font-size:.9rem; display:none; }
+    .msg.ok { display:block; background:var(--ok-bg); color:var(--ok); }
+    .msg.err { display:block; background:var(--err-bg); color:var(--err); }
+    .banner { padding:12px 14px; border-radius:12px; font-size:.9rem; margin-bottom:18px; }
+    .banner.warn { background:var(--warn-bg); color:var(--warn); }
+    .banner.ok { background:var(--ok-bg); color:var(--ok); }
+    .stats { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:14px; }
+    .stat { flex:1; min-width:120px; background:var(--bg); border-radius:12px; padding:12px 14px; }
+    .stat b { display:block; font-size:1.5rem; }
+    .stat span { color:var(--muted); font-size:.85rem; }
+    table { width:100%; border-collapse:collapse; font-size:.95rem; }
+    th, td { text-align:left; padding:10px 8px; border-bottom:1px solid var(--line); }
+    th { color:var(--muted); font-weight:600; font-size:.8rem; text-transform:uppercase; letter-spacing:.05em; }
+    td.num { text-align:right; font-variant-numeric: tabular-nums; }
+    th.num { text-align:right; }
+    .empty { color:var(--muted); text-align:center; padding:24px 0; }
+    .head { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:8px; flex-wrap:wrap; }
+    .head h2 { margin:0; font-size:1.1rem; }
+    footer { color:var(--muted); font-size:.8rem; text-align:center; margin-top:24px; }
+    code { background:var(--bg); padding:1px 5px; border-radius:5px; font-size:.85em; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Name &amp; Age Register</h1>
+  <p class="sub">Enter your name and age and press Save. Everyone's entries appear in the list below.</p>
+
+  <div id="banner" class="banner warn" hidden></div>
+
+  <div class="card">
+    <form id="form" novalidate>
+      <div class="row">
+        <div>
+          <label for="name">Your name</label>
+          <input id="name" name="name" type="text" maxlength="80" placeholder="e.g. Rahim Ahmed" required autocomplete="name">
+        </div>
+        <div>
+          <label for="age">Age</label>
+          <input id="age" name="age" type="number" min="1" max="120" inputmode="numeric" placeholder="e.g. 29" required>
+        </div>
+        <div>
+          <button type="submit" id="save">Save</button>
+        </div>
+      </div>
+      <div id="msg" class="msg" role="status" aria-live="polite"></div>
+    </form>
+  </div>
+
+  <div class="card">
+    <div class="head">
+      <h2>Saved entries <span id="count" class="sub"></span></h2>
+      <div>
+        <button type="button" class="btn-ghost" id="refresh">↻ Refresh</button>
+        <button type="button" class="btn-ghost" id="export">⬇ CSV</button>
+      </div>
+    </div>
+    <div class="stats">
+      <div class="stat"><b id="s-total">0</b><span>entries</span></div>
+      <div class="stat"><b id="s-avg">–</b><span>average age</span></div>
+      <div class="stat"><b id="s-range">–</b><span>youngest – oldest</span></div>
+    </div>
+    <div id="list"></div>
+  </div>
+
+  <footer>Hosted on GitHub Pages · data stored <span id="where">in this browser</span></footer>
+</div>
+
+<script>
+/* ============================================================================
+   CONFIGURATION
+   Paste your Google Apps Script "Web app" URL between the quotes to make the
+   entries shared for everyone (see README.md, 5 minutes). Leave it empty and
+   the page still works, but each visitor only sees their own entries.
+   ========================================================================== */
+const API_URL = '';
+/* ========================================================================== */
+
+const $ = (s) => document.querySelector(s);
+const form = $('#form'), msg = $('#msg'), saveBtn = $('#save'), banner = $('#banner');
+const LOCAL_KEY = 'nameAgeEntries';
+const useApi = /^https:\/\/script\.google(usercontent)?\.com\//.test(API_URL);
+
+banner.hidden = false;
+if (useApi) {
+  banner.className = 'banner ok';
+  banner.textContent = '✅ Connected to the shared Google Sheet — entries are visible to everyone.';
+  $('#where').textContent = 'in a shared Google Sheet';
+} else {
+  banner.className = 'banner warn';
+  banner.innerHTML = '⚠ <strong>Local mode:</strong> entries are saved only in this browser. The site owner can connect a Google Sheet (see README) so everyone sees the same list.';
+}
+
+function show(kind, text) { msg.className = `msg ${kind}`; msg.textContent = text; if (kind === 'ok') setTimeout(() => { msg.className = 'msg'; }, 4000); }
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+const fmtDate = (d) => { const t = new Date(d); return isNaN(t) ? '' : t.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }); };
+
+// ----- storage backends -------------------------------------------------
+const local = {
+  async list() { try { return JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]'); } catch { return []; } },
+  async add(entry) { const all = await this.list(); all.unshift(entry); localStorage.setItem(LOCAL_KEY, JSON.stringify(all.slice(0, 500))); },
+};
+const remote = {
+  async list() {
+    const r = await fetch(`${API_URL}?t=${Date.now()}`, { cache: 'no-store' });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error || 'Could not load entries');
+    return d.entries;
+  },
+  async add(entry) {
+    // text/plain avoids a CORS preflight, which Apps Script does not answer.
+    const r = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(entry) });
+    const d = await r.json().catch(() => ({ ok: true })); // some browsers can't read the redirected body; the row is still saved
+    if (d.ok === false) throw new Error(d.error || 'Save failed');
+  },
+};
+const store = useApi ? remote : local;
+
+// ----- rendering --------------------------------------------------------
+let entries = [];
+function render() {
+  const list = $('#list');
+  $('#count').textContent = entries.length ? `(${entries.length})` : '';
+  $('#s-total').textContent = entries.length;
+  if (entries.length) {
+    const ages = entries.map((e) => Number(e.age)).filter((n) => Number.isFinite(n));
+    $('#s-avg').textContent = (ages.reduce((a, b) => a + b, 0) / ages.length).toFixed(1);
+    $('#s-range').textContent = `${Math.min(...ages)} – ${Math.max(...ages)}`;
+    list.innerHTML = `<table><thead><tr><th>#</th><th>Name</th><th class="num">Age</th><th>Saved</th></tr></thead><tbody>${
+      entries.map((e, i) => `<tr><td>${entries.length - i}</td><td>${esc(e.name)}</td><td class="num">${esc(e.age)}</td><td>${esc(fmtDate(e.time))}</td></tr>`).join('')
+    }</tbody></table>`;
+  } else {
+    $('#s-avg').textContent = '–'; $('#s-range').textContent = '–';
+    list.innerHTML = '<div class="empty">No entries yet — be the first!</div>';
+  }
+}
+
+async function load() {
+  try {
+    $('#refresh').disabled = true;
+    entries = await store.list();
+    render();
+  } catch (e) {
+    show('err', `Could not load entries: ${e.message}`);
+  } finally { $('#refresh').disabled = false; }
+}
+
+// ----- form -------------------------------------------------------------
+form.addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const name = $('#name').value.trim().replace(/\s+/g, ' ');
+  const age = Number($('#age').value);
+  if (name.length < 2) return show('err', 'Please enter your name (at least 2 characters).');
+  if (!Number.isInteger(age) || age < 1 || age > 120) return show('err', 'Please enter a valid age between 1 and 120.');
+  const entry = { name, age, time: new Date().toISOString() };
+  saveBtn.disabled = true; saveBtn.textContent = 'Saving…';
+  try {
+    await store.add(entry);
+    show('ok', `Saved! Thank you, ${name}.`);
+    form.reset(); $('#name').focus();
+    if (useApi) await load(); else { entries.unshift(entry); render(); }
+  } catch (e) {
+    show('err', `Could not save: ${e.message}`);
+  } finally { saveBtn.disabled = false; saveBtn.textContent = 'Save'; }
+});
+
+$('#refresh').addEventListener('click', load);
+$('#export').addEventListener('click', () => {
+  const rows = [['Name', 'Age', 'Saved'], ...entries.map((e) => [e.name, e.age, e.time])];
+  const csv = rows.map((r) => r.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([`﻿${csv}`], { type: 'text/csv' }));
+  a.download = 'entries.csv'; a.click();
+});
+
+load();
+</script>
+</body>
+</html>
